@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>لافتة المواقف | Parking Sign</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* Printable A4 street sign. Open in a browser and print (Ctrl/Cmd + P). */
+    @page { size: A4; margin: 0; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #e9ebee; font-family: "Cairo", sans-serif; color: #1d2733; }
+    .sign {
+      width: 210mm; height: 297mm; margin: 0 auto; background: #fff;
+      display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+      padding: 18mm 16mm; text-align: center;
+    }
+    .p { width: 44mm; height: 44mm; border-radius: 9mm; background: #e10600; color: #fff;
+         display: grid; place-items: center; font: 800 32mm/1 Arial, sans-serif; }
+    h1 { font-size: 17mm; margin: 6mm 0 0; line-height: 1.2; }
+    h2 { font-size: 11mm; margin: 0; font-weight: 700; direction: ltr; }
+    img { width: 115mm; height: 115mm; }
+    .scan { font-size: 8mm; line-height: 1.5; margin: 0; }
+    .scan span { display: block; direction: ltr; font-size: 7mm; color: #5d6875; }
+    .foot { font-size: 4.5mm; color: #5d6875; }
+    .where { font-size: 7mm; font-weight: 700; color: #1a73e8; margin: 0; }
+    .where span { direction: ltr; display: inline-block; }
+    .index { max-width: 640px; margin: 0 auto; padding: 24px 16px; direction: ltr; text-align: left; }
+    .index a { display: block; padding: 10px 0; font-size: 18px; color: #1d2733; border-bottom: 1px solid #d6d9de; }
+    @media print { body { background: #fff; } .index { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="index" id="index" hidden>
+    <h2>Printable signs — one per location</h2>
+    <p>Open a sign, then print it on A4 (Ctrl/Cmd + P). Each QR code opens the map at that sign.</p>
+    <div id="links"></div>
+  </div>
+  <div class="sign">
+    <div class="p">P</div>
+    <div>
+      <h1>مواقف بأجر — حي النزهة</h1>
+      <h2>Paid Parking — El Nozha</h2>
+    </div>
+    <p class="where" id="where" hidden></p>
+    <img id="qr" src="qr.svg" alt="QR code">
+    <p class="scan">امسح الرمز لرؤية خريطة المواقف المحجوزة
+      <span>Scan to see the map of booked parking slots</span></p>
+    <div class="foot">m-ayman-kh.github.io/nozha-parking</div>
+  </div>
+  <script>
+    // sign.html?sign=<id> prints the sign for that location (see qr/signs.json)
+    const id = new URLSearchParams(location.search).get("sign");
+    fetch("qr/signs.json").then(r => r.json()).then(signs => {
+      const sign = signs.find(s => s.id === id);
+      if (sign) {
+        document.getElementById("qr").src = `qr/${sign.id}.svg`;
+        const where = document.getElementById("where");
+        where.innerHTML = `📍 ${sign.name_ar} · <span>${sign.name_en}</span>`;
+        where.hidden = false;
+        return;
+      }
+      document.getElementById("index").hidden = false;
+      document.getElementById("links").innerHTML = signs
+        .map(s => `<a href="?sign=${s.id}">${s.name_en} — ${s.name_ar}</a>`).join("");
+    });
+  </script>
+</body>
+</html>

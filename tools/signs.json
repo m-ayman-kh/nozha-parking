@@ -1,0 +1,6 @@
+[
+  {"id": "al-nozha",         "name_en": "Al Nozha Street",          "name_ar": "شارع النزهة",          "lat": 30.10931, "lng": 31.34536},
+  {"id": "abd-al-aziz-fahmy","name_en": "Abd Al Aziz Fahmy Street", "name_ar": "شارع عبد العزيز فهمي", "lat": 30.10206, "lng": 31.34891},
+  {"id": "nakhla-al-moteaay","name_en": "Nakhla Al Moteaay Street", "name_ar": "شارع نخلة المطيعي",    "lat": 30.10093, "lng": 31.33822},
+  {"id": "mohamed-shafik",   "name_en": "Mohamed Shafik Street",    "name_ar": "شارع محمد شفيق",       "lat": 30.10511, "lng": 31.33813}
+]
