@@ -5,6 +5,8 @@ const Nozha = (() => {
   const styles = getComputedStyle(document.documentElement);
   const css = name => styles.getPropertyValue(name).trim();
   const MAJOR = ["trunk", "primary", "secondary", "tertiary"];
+  const BUILDINGS_FROM = 13;   // zoom level (the whole area fits at ~13 on a phone)
+  const MAX_LABELS = 70;       // street names drawn at once
 
   // Centre labels with SVG itself: the plugin's own centring cuts off right-to-left (Arabic)
   // text. The plugin rebuilds the text on every redraw, so hook in after each setText.
@@ -27,7 +29,7 @@ const Nozha = (() => {
     }).setView([30.105, 31.38], 14);
     L.control.zoom({ position: "topleft" }).addTo(map);
 
-    const canvas = L.canvas({ padding: 0.5 });
+    const canvas = L.canvas({ padding: 0.15 });
     const state = { map, lang: "ar", labels: null, labelLayer: null, labelKey: "" };
 
     state.ready = Promise.all(["district", "streets", "buildings", "labels"].map(n => getJSON(`data/${n}.geojson`)))
@@ -40,12 +42,16 @@ const Nozha = (() => {
         });
         L.geoJSON(streets, {
           renderer: canvas, interactive: false,
-          style: { fillColor: css("--street"), fillOpacity: 1, color: css("--street-edge"), weight: 1 },
+          style: { fillColor: css("--street"), fillOpacity: 1, stroke: false },
         }).addTo(map);
-        L.geoJSON(buildings, {
+        // Buildings are specks at district scale: only draw them once zoomed in (much faster)
+        const bld = L.geoJSON(buildings, {
           renderer: canvas, interactive: false,
-          style: { fillColor: css("--building"), fillOpacity: 1, color: css("--building-edge"), weight: 0.8 },
-        }).addTo(map);
+          style: { fillColor: css("--building"), fillOpacity: 1, stroke: false },
+        });
+        const showBuildings = () => map.getZoom() >= BUILDINGS_FROM ? map.addLayer(bld) : map.removeLayer(bld);
+        map.on("zoomend", showBuildings);
+        showBuildings();
         outside.addTo(map);
         L.geoJSON(district, {
           renderer: canvas, interactive: false,
@@ -58,8 +64,11 @@ const Nozha = (() => {
         });
         state.labels = labels;
         state.district = L.geoJSON(district).getBounds();
-        map.setMaxBounds(state.district.pad(0.1));
-        map.on("moveend", () => drawLabels(state));
+        map.setMaxBounds(state.district.pad(0.8));  // generous: a tall phone screen is taller than the district
+        // Labels are the slowest part to draw: wait until the map stops moving
+        let timer;
+        map.on("movestart", () => clearTimeout(timer));
+        map.on("moveend", () => { clearTimeout(timer); timer = setTimeout(() => drawLabels(state), 150); });
         drawLabels(state);
         return state;
       });
@@ -76,10 +85,14 @@ const Nozha = (() => {
     if (!force && key === state.labelKey) return;
     state.labelKey = key;
     if (state.labelLayer) map.removeLayer(state.labelLayer);
+    state.labelLayer = null;
+    if (z < 15) return;
     const placed = {};  // name -> midpoints already labelled (divided roads have two lines)
     const layer = state.labelLayer = L.layerGroup();
-    for (const f of labels.features) {
-      if (z < 15 || (z < 16.5 && !f.major) || !view.intersects(f.bounds)) continue;
+    let count = 0;
+    for (const f of labels.features) {  // sorted: main roads first (build_data.py)
+      if (count >= MAX_LABELS) break;
+      if ((z < 16.5 && !f.major) || !view.intersects(f.bounds)) continue;
       const name = f.properties[lang];
       const pts = f.geometry.coordinates.map(([x, y]) => map.latLngToLayerPoint([y, x]));
       const length = pts.slice(1).reduce((s, p, i) => s + p.distanceTo(pts[i]), 0);
@@ -92,6 +105,7 @@ const Nozha = (() => {
       const line = L.polyline(coords, { opacity: 0, interactive: false });
       line.setText(name, { offset: 4, attributes: { class: "street-label" + (f.major ? " major" : "") } });
       layer.addLayer(line);
+      count++;
     }
     layer.addTo(map);
   }
@@ -121,5 +135,14 @@ const Nozha = (() => {
     return getJSON("data/slots.geojson");
   }
 
-  return { createMap, setLang, slotStyle, loadSlots, css };
+  // Slot numbers are plain numbers; shown with Arabic digits in Arabic
+  const slotNumber = (id, lang) => {
+    const n = String(id ?? "").replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+    return lang === "ar" ? n.replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]) : n;
+  };
+
+  // Slots on their own canvas, above the base map (canvas is much faster than SVG)
+  const slotRenderer = L.canvas({ padding: 0.15, tolerance: 4 });
+
+  return { createMap, setLang, slotStyle, loadSlots, slotNumber, slotRenderer, css };
 })();

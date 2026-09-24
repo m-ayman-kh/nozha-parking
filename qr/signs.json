@@ -3,28 +3,28 @@
   "id": "al-nozha",
   "name_en": "Al Nozha Street",
   "name_ar": "شارع النزهة",
-  "lat": 30.10931,
-  "lng": 31.34536
+  "lat": 30.0989,
+  "lng": 31.34312
  },
  {
   "id": "abd-al-aziz-fahmy",
   "name_en": "Abd Al Aziz Fahmy Street",
   "name_ar": "شارع عبد العزيز فهمي",
-  "lat": 30.10206,
-  "lng": 31.34891
+  "lat": 30.10382,
+  "lng": 31.34671
  },
  {
   "id": "nakhla-al-moteaay",
   "name_en": "Nakhla Al Moteaay Street",
   "name_ar": "شارع نخلة المطيعي",
-  "lat": 30.10093,
-  "lng": 31.33822
+  "lat": 30.1006,
+  "lng": 31.34214
  },
  {
   "id": "mohamed-shafik",
   "name_en": "Mohamed Shafik Street",
   "name_ar": "شارع محمد شفيق",
-  "lat": 30.10511,
-  "lng": 31.33813
+  "lat": 30.10413,
+  "lng": 31.33895
  }
 ]

@@ -24,7 +24,7 @@ const TEXT = {
     addHint: "كبّر الخريطة واضغط على حافة الرصيف حيث تبدأ المواقف، ثم حيث تنتهي.",
     newSlots: n => `${n.toLocaleString("ar-EG")} موقف جديد`, flip: "اقلب الجهة", cancel: "إلغاء", save: "حفظ", del: "حذف",
     streetAr: "الشارع (عربي)", streetEn: "الشارع (إنجليزي)", bookedAr: "محجوز لـ (عربي)", bookedEn: "محجوز لـ (إنجليزي)",
-    editSlot: "تعديل الموقف", confirmDel: id => `حذف الموقف ${id}؟`, saved: "تم الحفظ", deleted: "تم الحذف",
+    editSlot: "تعديل الموقف", confirmDel: id => `حذف الموقف رقم ${id}؟`, saved: "تم الحفظ", deleted: "تم الحذف",
     saveFailed: "تعذّر الحفظ: ", emptyTitle: "قائمة المواقف على الإنترنت فارغة",
     emptyHint: n => `استيراد ${n.toLocaleString("ar-EG")} موقف من الملف الحالي (data/slots.geojson)؟`, importBtn: "استيراد",
     demo: "وضع تجريبي — التغييرات لا تُحفظ", tooMany: "عدد كبير جداً من المواقف في مستند واحد.",
@@ -42,7 +42,7 @@ const TEXT = {
     addHint: "Zoom in, tap the kerb edge where the slots start, then where they end.",
     newSlots: n => `${n} new slot${n === 1 ? "" : "s"}`, flip: "Flip side", cancel: "Cancel", save: "Save", del: "Delete",
     streetAr: "Street (Arabic)", streetEn: "Street (English)", bookedAr: "Booked by (Arabic)", bookedEn: "Booked by (English)",
-    editSlot: "Edit slot", confirmDel: id => `Delete slot ${id}?`, saved: "Saved", deleted: "Deleted",
+    editSlot: "Edit slot", confirmDel: id => `Delete slot no. ${id}?`, saved: "Saved", deleted: "Deleted",
     saveFailed: "Could not save: ", emptyTitle: "The online slot list is empty",
     emptyHint: n => `Import the ${n} slots from the current file (data/slots.geojson)?`, importBtn: "Import",
     demo: "Demo mode — changes are not saved", tooMany: "Too many slots for one document.",
@@ -50,7 +50,6 @@ const TEXT = {
 };
 
 const SLOT_LEN = 5.2, SLOT_W = 2.3, SLOT_GAP = 0.6;  // metres, same as tools/build_data.py
-const AR_DIGITS = "٠١٢٣٤٥٦٧٨٩";
 
 let lang = (() => { try { return localStorage.getItem("lang") || "ar"; } catch (e) { return "ar"; } })();
 const t = () => TEXT[lang];
@@ -60,9 +59,12 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};
 const base = Nozha.createMap("map");
 const map = base.map;
 let slots = { type: "FeatureCollection", features: [] };
-let slotLayer = L.geoJSON(null, { style: () => Nozha.slotStyle(map), onEachFeature: (f, l) => l.on("click", () => openEdit(f.properties.id)) }).addTo(map);
+let slotLayer = L.geoJSON(null, { renderer: Nozha.slotRenderer, style: () => Nozha.slotStyle(map), onEachFeature: (f, l) => l.on("click", () => openEdit(f.properties.id)) }).addTo(map);
 map.on("zoomend", () => slotLayer.setStyle(Nozha.slotStyle(map)));
-base.ready.then(() => map.fitBounds(base.district, { animate: false }));
+Promise.all([base.ready, document.fonts ? document.fonts.ready : null]).then(() => {
+  map.invalidateSize({ animate: false });
+  map.fitBounds(base.district, { animate: false });
+});
 
 // ---------------------------------------------------------------- storage
 const fbConfig = window.NOZHA_CONFIG && window.NOZHA_CONFIG.firebase;
@@ -232,13 +234,10 @@ function nearestStreet(a, b) {
   return { side, props: best.props };
 }
 
+// Slot numbers: 1, 2, 3 … new slots continue after the highest number in use
 function nextIds(fc, count) {
-  let max = 0;
-  fc.features.forEach(f => { const m = /(\d+)$/.exec(f.properties.id || ""); if (m) max = Math.max(max, +m[1]); });
-  return Array.from({ length: count }, (_, i) => {
-    const num = String(max + 1 + i).padStart(3, "0");
-    return { id: `NZ-${num}`, id_ar: `نز-${num.replace(/\d/g, d => AR_DIGITS[d])}` };
-  });
+  const max = Math.max(0, ...fc.features.map(f => parseInt(String(f.properties.id).replace(/\D/g, ""), 10) || 0));
+  return Array.from({ length: count }, (_, i) => ({ id: String(max + 1 + i) }));
 }
 
 // ---------------------------------------------------------------- add a row of slots
@@ -352,7 +351,8 @@ function openEdit(id) {
   if (!f) return;
   const p = f.properties;
   slotLayer.eachLayer(l => l.setStyle(l.feature.properties.id === id ? { color: "#1d2733", weight: 3 } : Nozha.slotStyle(map)));
-  showSheet(`<h3>${t().editSlot} <span class="pill">${esc(lang === "ar" ? p.id_ar : p.id)}</span></h3>
+  const num = Nozha.slotNumber(id, lang);
+  showSheet(`<h3>${t().editSlot} <span class="pill">${esc(num)}</span></h3>
     ${fieldsHtml(p)}
     <div class="buttons">
       <button class="btn primary grow" id="saveEdit" type="button">${t().save}</button>
@@ -369,15 +369,15 @@ function openEdit(id) {
         return [id];
       }, "edit");
       closeSheet();
-      setStatus(`${t().saved} · ${id}`);
+      setStatus(`${t().saved} · ${num}`);
     } catch (err) { alert(t().saveFailed + err.message); }
   };
   $("delete").onclick = async () => {
-    if (!confirm(t().confirmDel(lang === "ar" ? p.id_ar : p.id))) return;
+    if (!confirm(t().confirmDel(num))) return;
     try {
       await commit(fc => { fc.features = fc.features.filter(x => x.properties.id !== id); return [id]; }, "delete");
       closeSheet();
-      setStatus(`${t().deleted} · ${id}`);
+      setStatus(`${t().deleted} · ${num}`);
     } catch (err) { alert(t().saveFailed + err.message); }
   };
 }

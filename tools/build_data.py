@@ -45,15 +45,23 @@ for w in ways:
                        "geometry": line.simplify(1).intersection(AREA)})
 
 road = unary_union(surfaces).intersection(AREA).simplify(0.3)
-streets = {"type": "FeatureCollection", "features": [
-    {"type": "Feature", "properties": {}, "geometry": mapping(transform(to_deg, road))}]}
+# Cut the street surface into 400 m squares so the map only redraws the squares on screen
+CELL = 400
+x0, y0, x1, y1 = road.bounds
+street_parts = []
+for gx in range(int(x0 // CELL), int(x1 // CELL) + 1):
+    for gy in range(int(y0 // CELL), int(y1 // CELL) + 1):
+        part = road.intersection(box(gx * CELL, gy * CELL, (gx + 1) * CELL, (gy + 1) * CELL))
+        if not part.is_empty and part.area > 1:
+            street_parts.append({"type": "Feature", "properties": {}, "geometry": mapping(transform(to_deg, part))})
+streets = {"type": "FeatureCollection", "features": street_parts}
 
 # --- buildings: drop anything that overlaps the street surface ----------------
 bld = []
 for f in json.load(open("buildings_raw.geojson"))["features"]:
     g = transform(to_m, shape(f["geometry"]))
     if g.area > 25 and g.intersection(road).area < 0.3 * g.area:
-        bld.append({"type": "Feature", "properties": {}, "geometry": mapping(transform(to_deg, g.simplify(0.4)))})
+        bld.append({"type": "Feature", "properties": {}, "geometry": mapping(transform(to_deg, g.simplify(0.8)))})
 
 # --- slots: split ways at intersections, fill chosen stretches ---------------
 key = lambda p: (round(p["lon"], 7), round(p["lat"], 7))
@@ -114,7 +122,6 @@ squares = unary_union([way_surface[w["id"]] for w in ways
                        ]).buffer(20)
 
 slots, sid = [], 0
-AR_DIGITS = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
 for name, limit in DEMO.items():
     pieces = [(s, w) for w in by_name.get(name, []) for s in stretches(w) if s.length > 2 * END_MARGIN + 4 * SLOT_LEN]
     rng.shuffle(pieces)
@@ -136,9 +143,8 @@ for name, limit in DEMO.items():
             sid += 1
             if k == 0 or rng.random() < 0.35:  # neighbouring slots usually share a booker
                 en, ar = rng.choice(BOOKERS)
-            code = f"NZ-{sid:03d}"
             slots.append({"type": "Feature", "properties": {
-                "id": code, "id_ar": code.translate(AR_DIGITS).replace("NZ", "نز"),
+                "id": str(sid),
                 "street_en": name, "street_ar": w["tags"]["name"],
                 "booked_en": en, "booked_ar": ar},
                 "geometry": mapping(transform(to_deg, rect))})
@@ -151,6 +157,7 @@ def dump(obj, path):
         return o
     json.dump(rnd(obj), open(path, "w"), ensure_ascii=False, separators=(",", ":"))
 
+labels.sort(key=lambda f: (f["properties"]["cls"] not in ("trunk", "primary", "secondary", "tertiary"), -f["geometry"].length))
 labels = [dict(f, geometry=mapping(transform(to_deg, g)))
           for f in labels for g in getattr(f["geometry"], "geoms", [f["geometry"]])
           if g.geom_type == "LineString" and not g.is_empty]

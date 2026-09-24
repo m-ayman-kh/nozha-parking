@@ -1,6 +1,6 @@
 # El Nozha Paid Parking Map
 
-A free, mobile-friendly map of the paid parking slots across the whole El Nozha district of Cairo: Al Nozha, New Al Nozha, Sheraton Al Matar and the Joseph Tito Street corridor. Citizens scan a QR code on a street sign, and the map opens with every paid slot drawn in red along the kerb. Tapping a slot shows who has booked it under a long-term agreement. The page is in Arabic and English.
+A free, mobile-friendly map of the paid parking slots in the El Nozha district of Cairo: Al Nozha, New Al Nozha and western Sheraton Al Matar (the crop box is in `tools/make_district.py`). Citizens scan a QR code on a street sign, and the map opens with every paid slot drawn in red along the kerb. Tapping a slot shows who has booked it under a long-term agreement. The page is in Arabic and English.
 
 **Live map:** https://m-ayman-kh.github.io/nozha-parking/
 **Admin:** https://m-ayman-kh.github.io/nozha-parking/admin.html

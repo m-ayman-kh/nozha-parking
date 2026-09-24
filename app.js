@@ -36,9 +36,12 @@ const base = Nozha.createMap("map");
 const map = base.map;
 let slotLayer, here, slotCount = 0;
 
-Promise.all([base.ready, Nozha.loadSlots()]).then(([, slots]) => {
+// wait for the web font too: it changes the header height, and so the map size
+Promise.all([base.ready, Nozha.loadSlots(), document.fonts ? document.fonts.ready : null]).then(([, slots]) => {
+  map.invalidateSize({ animate: false });
   slotCount = slots.features.length;
   slotLayer = L.geoJSON(slots, {
+    renderer: Nozha.slotRenderer,
     style: () => Nozha.slotStyle(map),
     onEachFeature: (f, layer) => {
       layer.bindPopup(() => popupHtml(f.properties), { maxWidth: 260 });
@@ -69,7 +72,7 @@ function popupHtml(p) {
   const t = TEXT[lang];
   const ar = lang === "ar";
   return `<div class="pop" dir="${ar ? "rtl" : "ltr"}">
-    <span class="id">${esc(ar ? p.id_ar : p.id)}</span>
+    <span class="id">${esc(Nozha.slotNumber(p.id, lang))}</span>
     <div class="street">${esc(ar ? p.street_ar : p.street_en)}</div>
     <div class="label">${t.bookedBy}</div>
     <div class="who">${esc(ar ? p.booked_ar : p.booked_en)}</div>
