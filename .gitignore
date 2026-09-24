@@ -6,3 +6,5 @@ tools/ms_links.csv
 tools/buildings_raw.geojson
 tools/osm_raw.json
 tools/fetch_buildings.py
+tools/boundary_raw.json
+tools/district.geojson

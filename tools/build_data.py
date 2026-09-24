@@ -11,6 +11,7 @@ import json, math, random
 from collections import Counter
 from shapely.geometry import LineString, Polygon, box, mapping, shape
 from shapely.ops import unary_union, substring, transform
+from shapely.strtree import STRtree
 
 LAT0, LON0 = 30.1000, 31.3432
 MX = 111320 * math.cos(math.radians(LAT0))  # metres per degree lon
@@ -24,11 +25,12 @@ WIDTH = {"trunk": 22, "primary": 20, "secondary": 16, "tertiary": 13,
          "residential": 10, "unclassified": 9, "living_street": 7, "service": 5}
 SLOT_LEN, SLOT_W, SLOT_GAP = 5.2, 2.3, 0.6
 END_MARGIN = 12  # keep clear of intersections
-A = json.load(open("area.json"))  # same box the buildings are clipped to
-AREA = transform(to_m, box(A["west"], A["south"], A["east"], A["north"]))
+AREA = transform(to_m, shape(json.load(open("district.geojson"))["geometry"]))  # El Nozha district, see make_district.py
 
 osm = json.load(open("osm_raw.json"))["elements"]
-ways = [w for w in osm if "highway" in w.get("tags", {}) and "geometry" in w]
+NEAR = AREA.buffer(30)
+ways = [w for w in osm if "highway" in w.get("tags", {}) and "geometry" in w
+        and NEAR.intersects(transform(to_m, LineString([(p["lon"], p["lat"]) for p in w["geometry"]])))]
 
 # --- streets: polygon surfaces + label lines ---------------------------------
 surfaces, labels, way_surface = [], [], {}
@@ -72,7 +74,13 @@ DEMO = {"Al Nozha Street": 3, "Abd Al Aziz Fahmy Street": 3, "Othman Ibn Affan S
         "Mohamed Shafik Street": 2, "Nakhla Al Moteaay Street": 2, "Al Doctor Ahmed Amin Street": 2,
         "Ibn Sina Street": 1, "Omar Bakir Street": 1, "Mohamed Ramzy Bek Street": 2,
         "Ali Shalaby Street": 1, "Kamal Al Shafie Street": 1, "Fawzi Al Moteaay Pasha Street": 1,
-        "Al Khalifa Al Mansour Street": 1, "Roshdi Pasha Street": 1}
+        "Al Khalifa Al Mansour Street": 1, "Roshdi Pasha Street": 1,
+        # New Al Nozha and Sheraton
+        "Joseph Tito Street": 3, "Side Joseph Tito Street": 2, "Anqarah Street": 2, "Al Saeqah Street": 2,
+        "Khaled Ibn Al Walid Street": 2, "Al Moshir Ahmed Ismail Street": 2, "Abd Al Hamid Badawi Street": 2,
+        "Mohamed Kamel Hussein Street": 2, "Al Zohor Street": 1, "Omar Ibn Al Khatab Street": 1,
+        "Taha Hussein Axis": 2, "Al Shahid Sayed Zakaria Khalil Street": 2, "Al Hassn Street": 1,
+        "Al Madina Al Mnoura Street": 1, "Moustafa Refaat Street": 1}
 
 BOOKERS = [
     ("El Nozha Pharmacy", "صيدلية النزهة"), ("Misr Insurance – Heliopolis branch", "مصر للتأمين – فرع مصر الجديدة"),
@@ -92,10 +100,13 @@ for w in ways:
     if n in DEMO:
         by_name.setdefault(n, []).append(w)
 
+surface_list = [(w["tags"].get("name:en"), way_surface[w["id"]]) for w in ways]
+surface_tree = STRtree([g for _, g in surface_list])
+
 def crosses_other_street(rect, name):
     """True when a slot would sit across a side street, junction or roundabout."""
-    return any(rect.intersects(g) for w in ways for g in [way_surface[w["id"]]]
-               if w["tags"].get("name:en") != name and rect.distance(g) == 0)
+    return any(surface_list[i][0] != name and rect.intersects(surface_list[i][1])
+               for i in surface_tree.query(rect))
 
 # no parking on squares and roundabouts
 squares = unary_union([way_surface[w["id"]] for w in ways

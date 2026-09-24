@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>إدارة المواقف | Parking Admin</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d2733'/%3E%3Ctext x='16' y='23' font-family='Arial' font-weight='700' font-size='20' fill='white' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .badge.admin { background: var(--ink); }
+    .bar .actions { display: flex; gap: 8px; }
+    .btn {
+      font: 600 15px "Cairo", sans-serif; min-height: 44px; padding: 8px 16px;
+      border-radius: 10px; border: 1px solid var(--street-edge); background: var(--panel); color: var(--ink); cursor: pointer;
+    }
+    .btn.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+    .btn.danger { color: #b00020; border-color: #f0c2c8; }
+    .btn.link { border: 0; background: none; color: #1a73e8; padding: 8px 0; min-height: 0; }
+    .btn[disabled] { opacity: .5; cursor: default; }
+
+    /* sign-in */
+    .gate { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; background: var(--ground); padding: 16px; }
+    .card { width: 100%; max-width: 380px; background: var(--panel); border-radius: 16px; box-shadow: var(--shadow); padding: 24px; }
+    .card h2 { margin: 0 0 4px; font-size: 20px; }
+    .card p { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+    label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
+    input {
+      width: 100%; font: 16px "Cairo", sans-serif; padding: 10px 12px; min-height: 44px;
+      border: 1px solid var(--street-edge); border-radius: 10px; background: #fff; color: var(--ink);
+    }
+    input[dir="ltr"] { text-align: left; }
+    .card .btn.primary { width: 100%; margin-top: 18px; }
+    .msg { font-size: 14px; margin-top: 12px; min-height: 1.4em; }
+    .msg.error { color: #b00020; }
+    .msg.ok { color: #137333; }
+
+    /* bottom sheet for adding / editing */
+    .sheet {
+      position: absolute; z-index: 1100; inset-inline: 0; bottom: 0;
+      background: var(--panel); border-radius: 16px 16px 0 0; box-shadow: 0 -4px 20px rgba(20, 30, 45, .18);
+      padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); max-height: 70vh; overflow: auto;
+    }
+    @media (min-width: 760px) {
+      .sheet { inset-inline: 16px auto; bottom: 16px; width: 400px; border-radius: 16px; }
+    }
+    .sheet h3 { margin: 0; font-size: 17px; }
+    .sheet .hint { color: var(--muted); font-size: 14px; margin: 4px 0 0; }
+    .sheet .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .sheet .buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+    .sheet .buttons .grow { flex: 1; }
+    .pill { display: inline-block; font-size: 12px; font-weight: 700; color: #fff; background: var(--slot); border-radius: 5px; padding: 0 7px; }
+    .toolbar { position: absolute; z-index: 1000; right: 16px; top: 88px;  /* zoom buttons are always top-left */ display: flex; flex-direction: column; gap: 8px; }
+    .toolbar .btn { box-shadow: var(--shadow); border: 0; }
+    .status { position: absolute; z-index: 900; inset-inline-start: 16px; bottom: calc(36px + env(safe-area-inset-bottom));
+      background: var(--panel); border-radius: 10px; box-shadow: var(--shadow); padding: 6px 12px; font-size: 13px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header class="bar">
+    <div class="brand">
+      <span class="badge admin" aria-hidden="true">P</span>
+      <div>
+        <h1 data-i18n="title"></h1>
+        <p id="who"></p>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="lang" class="lang" type="button"></button>
+      <button id="signout" class="lang" type="button" data-i18n="signOut" hidden></button>
+    </div>
+  </header>
+
+  <main id="map" aria-label="Map"></main>
+
+  <div class="toolbar" id="toolbar" hidden>
+    <button id="add" class="btn primary" type="button" data-i18n="addSlots"></button>
+  </div>
+  <div class="status" id="status"></div>
+
+  <section class="sheet" id="sheet" hidden></section>
+
+  <!-- sign-in / reset -->
+  <div class="gate" id="gate">
+    <form class="card" id="login" novalidate>
+      <h2 data-i18n="signInTitle"></h2>
+      <p data-i18n="signInHint"></p>
+      <label for="email" data-i18n="email"></label>
+      <input id="email" type="email" autocomplete="username" dir="ltr" required>
+      <div id="pwBlock">
+        <label for="password" data-i18n="password"></label>
+        <input id="password" type="password" autocomplete="current-password" dir="ltr" required>
+      </div>
+      <button class="btn primary" id="submit" type="submit" data-i18n="signIn"></button>
+      <button class="btn link" id="forgot" type="button" data-i18n="forgot"></button>
+      <div class="msg" id="loginMsg" role="status"></div>
+    </form>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet-textpath@1.2.3/leaflet.textpath.min.js"></script>
+  <script src="config.js"></script>
+  <script src="basemap.js"></script>
+  <script type="module" src="admin.js"></script>
+</body>
+</html>
