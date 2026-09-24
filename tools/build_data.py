@@ -149,6 +149,19 @@ for name, limit in DEMO.items():
                 "booked_en": en, "booked_ar": ar},
                 "geometry": mapping(transform(to_deg, rect))})
 
+# Demo booking end dates: most run into next year, a few have ended (those slots show as available)
+from datetime import date, timedelta
+dates = random.Random(11)
+today = date(2026, 9, 24)
+by_booker = {}
+for f in slots:
+    p = f["properties"]
+    key = (p["street_en"], p["booked_en"])
+    if key not in by_booker:  # slots booked together end together
+        by_booker[key] = (today - timedelta(days=dates.randint(5, 60)) if dates.random() < 0.15
+                          else today + timedelta(days=dates.randint(20, 540)))
+    p["expires"] = by_booker[key].isoformat()
+
 def dump(obj, path):
     def rnd(o):
         if isinstance(o, float): return round(o, 6)

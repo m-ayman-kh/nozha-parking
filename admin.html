@@ -53,6 +53,9 @@
     .sheet .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .sheet .buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
     .sheet .buttons .grow { flex: 1; }
+    .sheet input[type=file] { padding: 8px; }
+    .errors { font-size: 13px; color: #b00020; margin: 8px 0 0; padding-inline-start: 18px; max-height: 140px; overflow: auto; }
+    .summary { font-weight: 600; margin-top: 12px; }
     .pill { display: inline-block; font-size: 12px; font-weight: 700; color: #fff; background: var(--slot); border-radius: 5px; padding: 0 7px; }
     .toolbar { position: absolute; z-index: 1000; right: 16px; top: 88px;  /* zoom buttons are always top-left */ display: flex; flex-direction: column; gap: 8px; }
     .toolbar .btn { box-shadow: var(--shadow); border: 0; }
@@ -79,6 +82,8 @@
 
   <div class="toolbar" id="toolbar" hidden>
     <button id="add" class="btn primary" type="button" data-i18n="addSlots"></button>
+    <button id="template" class="btn" type="button" data-i18n="template"></button>
+    <button id="upload" class="btn" type="button" data-i18n="upload"></button>
   </div>
   <div class="status" id="status"></div>
 

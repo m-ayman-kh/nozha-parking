@@ -115,10 +115,26 @@ const Nozha = (() => {
     drawLabels(state, true);
   }
 
-  // A slot is ~2.3 m wide: give it a thicker outline when zoomed out so it stays visible
-  function slotStyle(map) {
+  // Booking end date: "YYYY-MM-DD". A slot is available when it has no booker or the date has passed.
+  const todayISO = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  const isBooked = p => !!(p && (p.booked_en || p.booked_ar) && (!p.expires || p.expires >= todayISO()));
+  const formatDate = (iso, lang) => {
+    if (!iso) return "";
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-GB", { day: "numeric", month: "long", year: "numeric" });
+  };
+
+  // A slot is ~2.3 m wide: give it a thicker outline when zoomed out so it stays visible.
+  // Booked = solid red; available = white with a red outline.
+  function slotStyle(map, feature) {
     const z = map.getZoom();
-    return { fillColor: css("--slot"), fillOpacity: 0.95, color: css("--slot"), weight: z < 13.5 ? 6 : z < 15 ? 5 : z < 16.5 ? 4 : z < 17.5 ? 2.5 : 1 };
+    const weight = z < 13.5 ? 6 : z < 15 ? 5 : z < 16.5 ? 4 : z < 17.5 ? 2.5 : 1.5;
+    return isBooked(feature && feature.properties)
+      ? { fillColor: css("--slot"), fillOpacity: 0.95, color: css("--slot"), weight: z < 17.5 ? weight : 1 }
+      : { fillColor: "#ffffff", fillOpacity: 1, color: css("--slot"), weight };
   }
 
   // Slots live in one Firestore document (one read per visit). If Firebase is not set up
@@ -144,5 +160,5 @@ const Nozha = (() => {
   // Slots on their own canvas, above the base map (canvas is much faster than SVG)
   const slotRenderer = L.canvas({ padding: 0.15, tolerance: 4 });
 
-  return { createMap, setLang, slotStyle, loadSlots, slotNumber, slotRenderer, css };
+  return { createMap, setLang, slotStyle, isBooked, formatDate, todayISO, loadSlots, slotNumber, slotRenderer, css };
 })();

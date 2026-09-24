@@ -17,7 +17,10 @@ To add a sign: put its id, name and mounting spot (lat/lng, from Google Maps wit
 Admins sign in at `admin.html` with an email and password. **Forgot password?** emails a reset link, which Firebase sends.
 
 - **Add:** tap **+ Add slots**, tap the kerb edge where the slots start, then where they end. The page fills the row with 5.2 × 2.3 m slots on the road side and fills in the street name. Type who booked them and **Save**. **Flip side** puts the row on the other side if it guessed wrong.
-- **Edit or delete:** tap any slot, change the booker or street, then **Save** or **Delete**.
+- **Edit or delete:** tap any slot, change the booker, street or **booking end date**, then **Save** or **Delete**.
+- **Update many at once:** tap **⬇ Template** to download all slots as a CSV file. Edit it in Excel, save it as *CSV UTF-8*, then use **⬆ Upload**. The page shows exactly what will change, lists any row errors (unknown slot number, unreadable date), and only saves after you tap **Apply**. Slots are matched by number, and an empty cell clears that value. New slots have to be drawn with **Add slots**, because a file has no kerb position.
+
+**Booking end dates:** a slot is **booked** (solid red) until its end date and **available to book** (red outline) after it, or when it has no booker. Citizens see "Booked by … until 2 February 2028 · Available again from 3 February 2028".
 - Every change is recorded in Firestore's `history` collection (who, what, when).
 - `admin.html?demo` works without signing in, for training. Changes made in demo mode are not saved.
 
